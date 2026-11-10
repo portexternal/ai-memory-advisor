@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Behavior Log</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel-2: #1f232c; --line: #2a2f3a;
+    --text: #e6e8ee; --muted: #8b93a7; --accent: #f2b544; --cs2: #f2b544;
+    --spotify: #1db954; --chrome: #4c8bf5; --steam: #66c0f4; --discord: #5865f2;
+    --other: #6b7280; --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    --sans: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 var(--sans); }
+  header { padding: 28px 32px 12px; border-bottom: 1px solid var(--line); display: flex; gap: 32px; align-items: baseline; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 22px; letter-spacing: -0.01em; }
+  header h1 span { color: var(--accent); }
+  header .meta { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+  main { padding: 20px 32px 48px; display: grid; gap: 20px; grid-template-columns: repeat(12, 1fr); }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; min-width: 0; }
+  section h2 { margin: 0 0 12px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
+  .span-12 { grid-column: span 12; } .span-8 { grid-column: span 8; } .span-6 { grid-column: span 6; } .span-4 { grid-column: span 4; }
+  @media (max-width: 1000px) { .span-8, .span-6, .span-4 { grid-column: span 12; } }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+  .stat { background: var(--panel-2); border-radius: 8px; padding: 12px 14px; }
+  .stat b { display: block; font-size: 26px; font-weight: 600; font-family: var(--mono); }
+  .stat small { color: var(--muted); }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin: 6px 0 10px; color: var(--muted); font-size: 12px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .day { display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 10px; margin: 4px 0; }
+  .day .label { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .day svg { width: 100%; height: 18px; display: block; background: var(--panel-2); border-radius: 4px; }
+  .axis { display: grid; grid-template-columns: 96px 1fr; margin-top: 6px; }
+  .axis div { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10px; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
+  td.mono, th.mono { font-family: var(--mono); font-size: 12px; }
+  .scroll { max-height: 420px; overflow: auto; }
+  .heat { display: grid; grid-template-columns: 110px repeat(24, 1fr); gap: 2px; align-items: center; }
+  .heat .name { font-family: var(--mono); font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+  .heat .cell { height: 18px; border-radius: 3px; background: var(--panel-2); }
+  .heat .h { font-family: var(--mono); font-size: 10px; color: var(--muted); text-align: center; }
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 999px; font-family: var(--mono); font-size: 11px; background: var(--panel-2); }
+  .empty { color: var(--muted); font-style: italic; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Behavior <span>Log</span></h1>
+  <div class="meta" id="meta"></div>
+</header>
+<main>
+  <section class="span-12"><h2>Summary</h2><div class="stats" id="stats"></div></section>
+  <section class="span-12"><h2>Foreground timeline, per day</h2><div class="legend" id="legend"></div><div id="timeline"></div></section>
+  <section class="span-8"><h2>Foreground minutes by hour of day</h2><div class="heat" id="heat"></div></section>
+  <section class="span-4"><h2>CS2 launches</h2><div class="scroll"><table id="launches"></table></div></section>
+  <section class="span-6"><h2>App transitions (focus A → B)</h2><div class="scroll"><table id="trans"></table></div></section>
+  <section class="span-6"><h2>Recent events</h2><div class="scroll"><table id="recent"></table></div></section>
+</main>
+<script>
+const DATA = /*__DATA__*/;
+const COLORS = { "cs2.exe": "var(--cs2)", "spotify.exe": "var(--spotify)", "chrome.exe": "var(--chrome)",
+  "steam.exe": "var(--steam)", "steamwebhelper.exe": "var(--steam)", "discord.exe": "var(--discord)" };
+const color = app => COLORS[app] || "var(--other)";
+const el = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmtMin = s => (s / 60).toFixed(0);
+
+function renderMeta() {
+  el("meta").textContent = `generated ${DATA.generated} · ${DATA.days_logged} day(s) · ${DATA.event_count} events`;
+}
+
+function renderStats() {
+  const w = DATA.latest_weather;
+  const fg = Object.entries(DATA.hourly).map(([app, h]) => [app, h.reduce((a, b) => a + b, 0)]).sort((a, b) => b[1] - a[1]);
+  const items = [
+    ["Days logged", DATA.days_logged, `${DATA.first_day ?? "-"} → ${DATA.last_day ?? "-"}`],
+    ["CS2 launches", DATA.cs2_launches.length, "app_start events"],
+    ["Focus switches", DATA.type_counts.focus ?? 0, "foreground changes"],
+    ["Top app", fg[0] ? fg[0][0] : "-", fg[0] ? `${fmtMin(fg[0][1])} min foreground` : ""],
+    ["Weather", w ? `${w.temp_c ?? "?"}°C` : "n/a", w ? `${w.city} · code ${w.weather_code} · ${w.precip_mm} mm` : "no sample yet"],
+  ];
+  el("stats").innerHTML = items.map(([k, v, s]) => `<div class="stat"><small>${esc(k)}</small><b>${esc(v)}</b><small>${esc(s)}</small></div>`).join("");
+}
+
+function renderLegend() {
+  const apps = Object.keys(DATA.hourly);
+  el("legend").innerHTML = apps.map(a => `<span><i style="background:${color(a)}"></i>${esc(a)}</span>`).join("") || "<span class='empty'>no focus data yet</span>";
+}
+
+function renderTimeline() {
+  const days = Object.keys(DATA.timeline).sort().reverse().slice(0, 21);
+  if (!days.length) { el("timeline").innerHTML = "<p class='empty'>nothing logged yet</p>"; return; }
+  const rows = days.map(day => {
+    const midnight = new Date(day + "T00:00:00").getTime() / 1000;
+    const rects = DATA.timeline[day].map(([s, e, app]) => {
+      const x = ((s - midnight) / 86400) * 1000, w = Math.max(1, ((e - s) / 86400) * 1000);
+      return `<rect x="${x.toFixed(1)}" y="0" width="${w.toFixed(1)}" height="18" fill="${color(app)}"><title>${esc(app)} ${new Date(s*1000).toLocaleTimeString()} (${fmtMin(e-s)} min)</title></rect>`;
+    }).join("");
+    return `<div class="day"><div class="label">${day}</div><svg viewBox="0 0 1000 18" preserveAspectRatio="none">${rects}</svg></div>`;
+  }).join("");
+  const ticks = [0, 3, 6, 9, 12, 15, 18, 21, 24].map(h => `<span>${String(h).padStart(2, "0")}</span>`).join("");
+  el("timeline").innerHTML = rows + `<div class="axis"><div></div><div>${ticks}</div></div>`;
+}
+
+function renderHeat() {
+  const apps = Object.entries(DATA.hourly).sort((a, b) => b[1].reduce((x, y) => x + y) - a[1].reduce((x, y) => x + y)).slice(0, 10);
+  if (!apps.length) { el("heat").innerHTML = "<p class='empty'>no focus data yet</p>"; el("heat").style.display = "block"; return; }
+  const max = Math.max(1, ...apps.flatMap(([, h]) => h));
+  let html = `<div></div>` + Array.from({ length: 24 }, (_, h) => `<div class="h">${h}</div>`).join("");
+  for (const [app, hours] of apps) {
+    html += `<div class="name" title="${esc(app)}">${esc(app)}</div>`;
+    html += hours.map(v => `<div class="cell" title="${esc(app)} @ ${fmtMin(v)} min" style="background:${color(app)};opacity:${v ? (0.15 + 0.85 * v / max).toFixed(2) : 0.06}"></div>`).join("");
+  }
+  el("heat").innerHTML = html;
+}
+
+function renderLaunches() {
+  const rows = DATA.cs2_launches.slice().reverse();
+  el("launches").innerHTML = `<tr><th>When</th><th>Day</th><th>Hour</th></tr>` +
+    (rows.map(r => `<tr><td class="mono">${esc(r.ts.slice(0, 16).replace("T", " "))}</td><td>${r.weekday}</td><td class="mono">${r.hour}</td></tr>`).join("") ||
+     `<tr><td colspan="3" class="empty">no cs2.exe starts logged yet</td></tr>`);
+}
+
+function renderTransitions() {
+  el("trans").innerHTML = `<tr><th>From</th><th>To</th><th>Count</th></tr>` +
+    (DATA.transitions.map(t => `<tr><td><span class="tag" style="border-left:3px solid ${color(t.from)}">${esc(t.from)}</span></td><td><span class="tag" style="border-left:3px solid ${color(t.to)}">${esc(t.to)}</span></td><td class="mono">${t.n}</td></tr>`).join("") ||
+     `<tr><td colspan="3" class="empty">no transitions yet</td></tr>`);
+}
+
+function renderRecent() {
+  const rows = DATA.recent.map(ev => {
+    const extra = Object.entries(ev).filter(([k]) => !["ts", "epoch", "type"].includes(k)).map(([k, v]) => `${k}=${esc(v)}`).join(" ");
+    return `<tr><td class="mono">${esc(ev.ts.slice(5, 19).replace("T", " "))}</td><td><span class="tag">${esc(ev.type)}</span></td><td class="mono">${extra}</td></tr>`;
+  }).join("");
+  el("recent").innerHTML = `<tr><th>Time</th><th>Type</th><th>Fields</th></tr>` + (rows || `<tr><td colspan="3" class="empty">empty</td></tr>`);
+}
+
+renderMeta(); renderStats(); renderLegend(); renderTimeline(); renderHeat(); renderLaunches(); renderTransitions(); renderRecent();
+</script>
+</body>
+</html>

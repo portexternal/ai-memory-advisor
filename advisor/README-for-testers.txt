@@ -1,0 +1,54 @@
+AI Memory Advisor 0.1.0 (thesis prototype)
+==========================================
+
+What it is
+----------
+A small Windows program that learns which apps you open and when. For the first 10 days it only
+watches. From day 11 it predicts the heavy app you are about to open and reads that app's files
+into memory in advance, so the app starts faster. Windows 10 or 11, no administrator rights.
+
+How to use it
+-------------
+1. Put AIMemoryAdvisor.exe in a folder where it can stay (for example Documents). Do not move it later.
+2. Double-click it. Read the notice and press Yes.
+3. That is all. It runs in the background and starts by itself when you sign in.
+4. Use the PC as usual for 10 days. Open your heavy apps (games, Blender, video editors) as you normally do.
+
+To see what it learned: double-click the exe again and press Yes. A report opens in the browser.
+To stop and remove it: double-click the exe again and press No.
+To delete everything it stored: delete the folder %LOCALAPPDATA%\AIMemoryAdvisor.
+
+What it records
+---------------
+Program names (for example blender.exe), start and stop times, idle periods, free memory, and
+the list of files each app opens while starting.
+It does NOT record window titles, keystrokes, screenshots or file contents.
+It never uses the network. All data stays on this computer in %LOCALAPPDATA%\AIMemoryAdvisor.
+
+What to expect
+--------------
+Days 1 to 10: the report says "Learning: day N of 10". Nothing is pre-loaded.
+A day only counts when the PC was used that day.
+Day 11 on: the report shows the apps it prepares, each prediction, and the time to first window
+with and without a prefetch.
+It only prepares apps that were opened at least 3 times and need at least 200 MB of files.
+It stays out of the way: it pauses when the CPU or disk is busy, when a heavy app is already
+running, and it never uses more than 40 % of installed memory. Windows can take the cached
+memory back at any moment.
+
+Help improve it (optional)
+--------------------------
+Double-click "Share my data.cmd". It writes an anonymised copy of your usage data to a zip file
+(program names, weekday and time of day, launch times, no dates, no file names, no user name).
+Nothing is uploaded. You read the file first and decide whether to send it. Details: docs/SHARING.md
+in the project repository, https://github.com/portexternal/ai-memory-advisor
+
+Windows warning
+---------------
+The file is not code-signed, so Windows SmartScreen may show "Windows protected your PC".
+Press "More info", then "Run anyway". The full source code is in the project repository.
+
+Settings (optional)
+-------------------
+%LOCALAPPDATA%\AIMemoryAdvisor\config.json, for example "observe_days": 10. Restart the program
+after a change (run it, press No, run it again).

@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+data/
+tools/
+build/
+dist/
+.pytest_cache/
+.coverage
+dashboard/index.html
+video/
+exports/

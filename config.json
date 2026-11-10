@@ -1,0 +1,85 @@
+{
+  "poll_seconds": 1,
+  "heartbeat_seconds": 300,
+  "idle_threshold_seconds": 300,
+  "weather_seconds": 1800,
+  "dashboard_rebuild_seconds": 300,
+  "log_window_titles": true,
+  "watch_apps": [
+    "cs2.exe",
+    "steam.exe",
+    "spotify.exe",
+    "chrome.exe",
+    "discord.exe",
+    "msedge.exe",
+    "firefox.exe",
+    "code.exe"
+  ],
+  "ignore_foreground": [
+    "explorer.exe",
+    "searchhost.exe",
+    "startmenuexperiencehost.exe",
+    "shellexperiencehost.exe",
+    "lockapp.exe",
+    "textinputhost.exe",
+    "applicationframehost.exe"
+  ],
+  "open_dashboard_at_logon": false,
+  "dashboard_logon_delay_seconds": 30,
+  "predictor": {
+    "target": "cs2.exe",
+    "window_min": 30,
+    "threshold": 0.3,
+    "cooldown_min": 45,
+    "budget_gb": 12.4,
+    "min_free_gb": 3,
+    "tick_seconds": 600,
+    "multi": {
+      "_note": "Future work 2026-11-11: multi-application predictive memory management, see docs/FUTURE-MULTI-APP.md. Used by predictor/multi.py only.",
+      "targets": [
+        {
+          "exe": "cs2.exe",
+          "fileset": "data/fileset/cs2_launch.json",
+          "enabled": true
+        },
+        {
+          "exe": "blender.exe",
+          "fileset": null,
+          "enabled": true
+        },
+        {
+          "exe": "AfterFX.exe",
+          "fileset": null,
+          "enabled": true
+        },
+        {
+          "exe": "chrome.exe",
+          "fileset": null,
+          "enabled": false
+        },
+        {
+          "exe": "discord.exe",
+          "fileset": null,
+          "enabled": false
+        }
+      ],
+      "budget_fraction": 0.5,
+      "budget_cap_gb": 12.4,
+      "heavy_apps": [
+        "AfterFX.exe",
+        "blender.exe",
+        "cs2.exe",
+        "premiere.exe",
+        "davinciresolve.exe",
+        "unrealeditor.exe"
+      ],
+      "max_cpu_percent": 60,
+      "max_disk_mb_s": 50,
+      "false_rate_alpha": 0.2,
+      "false_rate_penalty": 0.3,
+      "threshold": 0.3,
+      "tick_seconds": 600
+    },
+    "_budget_rule": "budget_gb = min(launch set, 40% of installed RAM); 32 GB PC -> 12.4 GB. Fire needs free RAM >= budget + min_free (15.4 GB). Set 2026-11-11, was 24 GB which needed 27 GB free and never fired."
+  }
+}
