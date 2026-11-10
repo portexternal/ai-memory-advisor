@@ -9,6 +9,11 @@ Core rule for every item: **never sacrifice present performance for predicted fu
 - Standalone app (`advisor/`): 10 learning days, then it works on its own for whatever heavy apps the user has.
   Launch file sets are captured automatically from open and memory-mapped files.
 
+## Done in 0.3.0: memory split by recent use
+`advisor/allocate.py`. Per time slot, the budget is divided between heavy apps by recency-weighted share,
+with a hedge floor (15 %), a solo line (85 %), an activity check (20 %) and a measured-gain weight.
+Still open: the three lines are first guesses, tuned on one person's log. They need the shared data pool.
+
 ## Next: multi-application memory manager
 Design in `docs/FUTURE-MULTI-APP.md`, scaffolding in `predictor/multi.py`.
 1. **Budget allocation between apps.** Today the budget is split by probability x launch-set size.

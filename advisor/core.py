@@ -14,8 +14,10 @@ from pathlib import Path
 
 import psutil
 
+from advisor import allocate
+
 APP = "AIMemoryAdvisor"
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 TERMS_VERSION = "1.0"           # docs/TERMS.md and docs/PRIVACY.md; a change makes the program ask again
 GB = 1e9
 CHUNK = 4 * 1024 * 1024
@@ -45,6 +47,7 @@ DEFAULTS = {
     "false_rate_alpha": 0.2,
     "false_rate_penalty": 0.3,
     "ignore_foreground": [],       # extra app names to ignore, on top of the built-in list per OS
+    **allocate.DEFAULTS,           # how the budget is split between competing apps
 }
 
 
@@ -186,7 +189,7 @@ def pick_targets(cfg: dict, folder: Path, evs: list) -> list:
             ranked.append((count * size, exe, size, count))
     ranked.sort(reverse=True)
     return [{"exe": exe, "fileset": str(fileset_path(folder, exe)), "enabled": True,
-             "set_gb": round(size / GB, 2), "launches": count}
+             "set_gb": round(size / GB, 3), "launches": count}
             for _, exe, size, count in ranked[:cfg["max_targets"]]]
 
 

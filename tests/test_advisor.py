@@ -193,23 +193,70 @@ def test_predictor_does_nothing_while_learning(folder):
     assert not (folder / "last_plan.json").exists()
 
 
-def test_predictor_plans_on_day_eleven_without_reading_when_not_acting(folder):
+def seed_evening_habit(folder: Path, exe: str, days: int):
+    """Past days in which exe was opened at the current time of day (so the slot is active now)."""
+    for i in range(1, days + 1):
+        day = datetime.now() - timedelta(days=i)
+        line = json.dumps({"ts": day.astimezone().isoformat(timespec="seconds"), "type": "app_start", "app": exe})
+        with (folder / "logs" / f"{day:%Y-%m-%d}.jsonl").open("a", encoding="utf-8") as fh:
+            fh.write(line + "\n")
+
+
+def heavy_setup(folder: Path, monkeypatch, exes=("heavy.exe",)) -> dict:
     write_days(folder, 11)
-    paths = make_files(folder, {"heavy.bin": 3_000_000})
-    core.merge_fileset(core.fileset_path(folder, "heavy.exe"), "heavy.exe", {paths["heavy.bin"]})
-    for _ in range(4):
-        events.write("app_start", app="heavy.exe", pid=1)
-    cfg = {**core.DEFAULTS, "min_set_mb": 1}
+    for exe in exes:
+        path = make_files(folder, {exe + ".bin": 3_000_000})[exe + ".bin"]
+        core.merge_fileset(core.fileset_path(folder, exe), exe, {path})
+        seed_evening_habit(folder, exe, 6)
+    monkeypatch.setattr(multi, "system_guard", lambda mcfg: "")
+    monkeypatch.setattr(multi, "free_budget_gb", lambda mcfg: 4.0)
+    monkeypatch.setattr(multi, "running_set", lambda: set())
+    return {**core.DEFAULTS, "min_set_mb": 1, "min_slice_gb": 0.001}
+
+
+def test_predictor_plans_on_day_eleven_without_reading_when_not_acting(folder, monkeypatch):
+    cfg = heavy_setup(folder, monkeypatch)
     report = app.predictor_tick(folder, cfg, app.Shared(), act=False)
-    assert report["phase"] == "active" and report["plan"][0]["exe"] == "heavy.exe"
+    assert report["phase"] == "active" and report["decision"] == "load"
+    assert report["rows"][0]["exe"] == "heavy.exe" and report["rows"][0]["share"] == 1.0
     assert "executed" not in report and (folder / "last_plan.json").exists()
+
+
+def test_predictor_loads_every_app_that_shares_the_slot(folder, monkeypatch):
+    cfg = heavy_setup(folder, monkeypatch, exes=("one.exe", "two.exe"))
+    shared = app.Shared()
+    report = app.predictor_tick(folder, cfg, shared, act=True)
+    assert sorted(x["exe"] for x in report["executed"]) == ["one.exe", "two.exe"]
+    assert all(r["share"] == 0.5 for r in report["rows"])
+    kinds = [e["type"] for e in events.read_all()]
+    assert kinds.count("prefetch_fired") == 2 and kinds.count("prefetch_done") == 2
+    assert shared.recently_fired("one.exe", 30)
+    again = app.predictor_tick(folder, cfg, shared, act=True)          # both were just loaded
+    assert again["executed"] == [] and {r["skip"] for r in again["rows"]} == {"loaded recently, still cached"}
+
+
+def test_predictor_respects_the_busy_pc_guard_and_a_running_app(folder, monkeypatch):
+    cfg = heavy_setup(folder, monkeypatch, exes=("one.exe", "two.exe"))
+    monkeypatch.setattr(multi, "running_set", lambda: {"one.exe"})
+    report = app.predictor_tick(folder, cfg, app.Shared(), act=True)
+    by_app = {r["exe"]: r for r in report["rows"]}
+    assert by_app["one.exe"]["skip"] == "already running" and by_app["two.exe"]["budget_gb"] > 0
+    monkeypatch.setattr(multi, "system_guard", lambda mcfg: "cpu busy 90%")
+    busy = app.predictor_tick(folder, cfg, app.Shared(), act=True)
+    assert busy["guard"] == "cpu busy 90%" and "executed" not in busy
 
 
 def test_predictor_reports_when_no_heavy_app_was_learned(folder):
     write_days(folder, 11)
     report = app.predictor_tick(folder, core.DEFAULTS, app.Shared(), act=True)
-    assert report["plan"] == [] and "note" in report
+    assert report["rows"] == [] and "note" in report
 
+
+def test_report_page_shows_the_split(folder, monkeypatch):
+    cfg = heavy_setup(folder, monkeypatch, exes=("one.exe", "two.exe"))
+    app.predictor_tick(folder, cfg, app.Shared(), act=False)
+    text = status.render(folder, cfg, events.read_all()).read_text(encoding="utf-8")
+    assert "memory split" in text and "one.exe" in text and "50%" in text and "Budget 4.0 GB" in text
 
 def test_shared_remembers_a_recent_prefetch():
     shared = app.Shared()

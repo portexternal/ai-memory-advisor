@@ -28,7 +28,7 @@ if str(ROOT) not in sys.path:
 
 import psutil  # noqa: E402
 
-from advisor import core, plat, status  # noqa: E402
+from advisor import allocate, core, plat, status  # noqa: E402
 from logger import events  # noqa: E402
 from predictor import multi  # noqa: E402
 
@@ -259,26 +259,61 @@ def heavy_running(mcfg: dict, target: str) -> bool:
     return bool(heavy & multi.running_set())
 
 
+def skip_reasons(targets: list, state: dict, mcfg: dict) -> dict:
+    """Apps that must not be loaded right now: already running, or loaded a moment ago."""
+    running, now, out = multi.running_set(), datetime.now(), {}
+    for t in targets:
+        last = multi.target_state(state, t["exe"]).get("last_fire")
+        if t["exe"] in running:
+            out[t["exe"]] = "already running"
+        elif last and now - datetime.fromisoformat(last) < timedelta(minutes=mcfg["cooldown_min"]):
+            out[t["exe"]] = "loaded recently, still cached"
+    return out
+
+
+def execute(rows: list, mcfg: dict, state: dict, shared: Shared) -> list:
+    """Load each app's slice, biggest share first. Stops the moment another heavy app starts."""
+    done = []
+    for row in rows:
+        if row["budget_gb"] <= 0:
+            continue
+        exe = row["exe"]
+        if heavy_running(mcfg, exe):
+            events.write("prefetch_paused", app=exe, reason="a heavy app started", mode="split")
+            break
+        events.write("prefetch_fired", app=exe, p=row["share"], budget_gb=row["budget_gb"], mode="split")
+        shared.mark_fired(exe)
+        rec = core.prefetch_fileset(Path(row["fileset"]), row["budget_gb"], lambda: heavy_running(mcfg, exe))
+        events.write("prefetch_done", app=exe, read_gb=rec.get("read_gb"), seconds=rec.get("seconds"),
+                     cpu_seconds=rec.get("cpu_seconds"), error=rec.get("error"), mode="split")
+        stamp = datetime.now().isoformat(timespec="seconds")
+        multi.target_state(state, exe).update({"last_fire": stamp, "open_fire": stamp})
+        done.append({"exe": exe, **rec})
+    return done
+
+
 def predictor_tick(folder: Path, cfg: dict, shared: Shared, act: bool) -> dict:
-    """One prediction round. Does nothing during the learning days."""
+    """One prediction round. Does nothing during the learning days. From then on the budget is
+    split between the apps usually opened around this time (advisor/allocate.py)."""
     days = core.recorded_days(folder / "logs")
     if core.phase(days, cfg["observe_days"]) == "learning":
         return {"phase": "learning", "day": days}
     evs = events.read_all()
     targets = core.pick_targets(cfg, folder, evs)
     if not targets:
-        return {"phase": "active", "day": days, "plan": [], "note": "no heavy app learned yet"}
-    mcfg = core.build_multi_cfg(cfg, targets)
-
-    def run_prefetch(target: dict, budget_gb: float, _label: str) -> dict:
-        shared.mark_fired(target["exe"])
-        return core.prefetch_fileset(Path(target["fileset"]), budget_gb, lambda: heavy_running(mcfg, target["exe"]))
-
-    multi.run_prefetch = run_prefetch
-    report = {"phase": "active", "day": days, **multi.tick(mcfg, multi.load_state(), act=act)}
+        return {"phase": "active", "day": days, "rows": [], "note": "no heavy app learned yet"}
+    mcfg, state = core.build_multi_cfg(cfg, targets), multi.load_state()
+    multi.settle(mcfg, evs, state)                 # earlier loads: was the app opened afterwards?
+    guard = multi.system_guard(mcfg)               # heavy app running, CPU busy, disk busy
+    budget = multi.free_budget_gb(mcfg)            # at most 40 % of installed RAM, and only free RAM
+    plan = allocate.plan(datetime.now(), evs, targets, budget, cfg, skip_reasons(targets, state, mcfg))
+    report = {"phase": "active", "day": days, "time": datetime.now().isoformat(timespec="seconds"),
+              "guard": guard or "ok", **plan}
+    if act and not guard:
+        report["executed"] = execute(plan["rows"], mcfg, state, shared)
+    multi.save_state(state)
     (folder / "last_plan.json").write_text(json.dumps(report, indent=1), encoding="utf-8")
     return report
-
 
 def predictor_loop(folder: Path, cfg: dict, shared: Shared):
     announced = False

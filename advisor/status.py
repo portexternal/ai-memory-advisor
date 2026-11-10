@@ -65,11 +65,21 @@ def plan_rows(folder: Path) -> list:
     if not path.exists():
         return []
     try:
-        plan = json.loads(path.read_text(encoding="utf-8")).get("plan", [])
+        plan = json.loads(path.read_text(encoding="utf-8")).get("rows", [])
     except (ValueError, OSError):
         return []
-    return [[x["exe"], f"{x['p']:.0%}", f"{x['threshold']:.0%}", f"{x['set_gb']} GB",
-             f"{x['budget_gb']} GB" if not x["skip"] else "0", x["skip"] or "prefetch"] for x in plan]
+    return [[x["exe"], f"{x['share']:.0%}", f"{x['set_gb']} GB",
+             f"{x['budget_gb']} GB" if not x["skip"] else "0", x["skip"] or "load"] for x in plan]
+
+
+def plan_note(folder: Path) -> str:
+    """One line on the last decision: how usual this time of day is, and the memory budget."""
+    try:
+        plan = json.loads((folder / "last_plan.json").read_text(encoding="utf-8"))
+        return (f"Chance a heavy app is opened around this time: {plan['activity']:.0%}. "
+                f"Budget {plan['budget_gb']} GB. PC check: {plan['guard']}. Decision: {plan['decision']}.")
+    except (KeyError, ValueError, OSError):
+        return ""
 
 
 def render(folder: Path, cfg: dict, evs: list) -> Path:
@@ -92,8 +102,11 @@ def render(folder: Path, cfg: dict, evs: list) -> Path:
             "<h2>Predictions</h2>",
             table(["Prefetches", "Hits", "False", "Paused for a busy PC", "Read into cache"],
                   [[s["fired"], s["hits"], s["false"], s["paused"], f"{s['read_gb']:.1f} GB"]]),
-            "<h2>Last plan</h2>",
-            table(["App", "Chance now", "Needed", "Set", "Budget", "Decision"], plan_rows(folder)),
+            "<h2>Last plan: memory split between the apps you use around this time</h2>",
+            f'<p class="muted">{html.escape(plan_note(folder))}</p>',
+            table(["App", "Recent share of this time slot", "Launch set", "Slice", "Decision"], plan_rows(folder)),
+            '<p class="muted">The budget is split by how much each app was used lately at this time of day. '
+            "One app takes it all only above 85 % share, so a switch to the other app still finds files loaded.</p>",
             "<h2>Time to first window, median (number of launches)</h2>",
             table(["App", "Normal launch", "After a prefetch"], timing_rows(s["timing"])),
             '<p class="muted">Time from process start to first visible window, 1 s resolution. Normal launches '

@@ -1,4 +1,4 @@
-AI Memory Advisor 0.2.0 for Mac (thesis prototype, experimental)
+AI Memory Advisor 0.3.0 for Mac (thesis prototype, experimental)
 ================================================================
 
 What it is
@@ -60,6 +60,8 @@ Days 1 to 10: the report says "Learning: day N of 10". Nothing is pre-loaded.
 Day 11 on: the report shows the apps it prepares, each prediction, and the time to first window
 with and without a prefetch.
 It only prepares apps that were opened at least 3 times and need at least 200 MB of files.
+If you use two or more heavy apps around the same time of day, the memory is shared between
+them by how much you used each one lately, so switching apps still finds files ready.
 It pauses when the CPU or disk is busy or a heavy app is already running, and never uses more
 than 40 % of installed memory. macOS can take the cached memory back at any moment.
 

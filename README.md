@@ -71,6 +71,24 @@ jobs also run the built app against a real app launch. OS-specific code lives in
 `advisor/platform_mac.py` behind `advisor/plat.py`. Notes for testers: `advisor/README-for-testers*.txt`.
 What comes next: `ROADMAP.md`.
 
+**How memory is shared between apps (0.3.0, `advisor/allocate.py`).** One app no longer takes the whole budget.
+For the current time of day, each heavy app gets a share from how much it was used there lately (a launch loses
+half its weight every 7 days), and the budget is split by that share.
+- Not overconfident: one app takes everything only above 85 % share. Any app at 15 % or more keeps a slice, so
+  switching games still finds files loaded.
+- Not too strict: if a heavy app is usually opened around now (on 20 % of recent days or more), something is loaded.
+- Measured: every launch is timed with and without a prefetch; an app that shows no gain gets a smaller share.
+- Budget: at most 40 % of installed RAM, and only from memory that is free right now.
+
+Example: CS2 every evening for a week, then Overwatch for a week, then alternating, then 3 days CS2 and 4 days
+Overwatch gives about 40 % CS2 and 60 % Overwatch for the next evening: 3.2 GB and 4.8 GB of an 8 GB budget.
+
+Replay on the author's own 58-day log (`python -m advisor.allocate --replay <logs> --apps a.exe,b.exe`), 48 heavy
+launches: the split rule had nothing loaded for the opened app in 25 % of cases, winner-takes-all in 31 %. Mean
+share of the budget on the opened app: 0.63 split, 0.69 winner-takes-all. So for a steady user the hedge costs a
+little and for a switching user it helps; that trade is the point. No real launch-time gain has been measured for
+the split yet.
+
 **Terms and privacy.** `docs/TERMS.md` and `docs/PRIVACY.md`. The program shows them on first run and asks
 again when they change. Research prototype, no warranty. Data stays local; sharing is opt-in.
 
