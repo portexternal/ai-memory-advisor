@@ -275,3 +275,26 @@ def test_status_says_learning_before_day_eleven(folder):
     write_days(folder, 4)
     text = status.render(folder, core.DEFAULTS, []).read_text(encoding="utf-8")
     assert "Learning: day 4 of 10" in text and "Predictions" not in text
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS app bundles only")
+def test_mac_bundle_files_lists_a_real_app_bundle():
+    apps = sorted(Path("/Applications").glob("*.app"))
+    if not apps:
+        pytest.skip("no app in /Applications")
+    binaries = sorted((apps[0] / "Contents" / "MacOS").iterdir())
+    files = plat.bundle_files(str(binaries[0]))
+    assert files and all(str(apps[0]) in f for f in files)
+    assert str(binaries[0]) in files
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS login item only")
+def test_mac_autostart_writes_and_removes_the_launch_agent(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    plat.set_autostart(True, "AIMemoryAdvisor", "/tmp/AIMemoryAdvisor")
+    agent = tmp_path / "Library" / "LaunchAgents" / "com.aimemoryadvisor.agent.plist"
+    import plistlib
+    data = plistlib.loads(agent.read_bytes())
+    assert data["ProgramArguments"] == ["/tmp/AIMemoryAdvisor"] and data["RunAtLoad"] is True
+    plat.set_autostart(False, "AIMemoryAdvisor", "/tmp/AIMemoryAdvisor")
+    assert not agent.exists()
