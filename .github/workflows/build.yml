@@ -41,6 +41,7 @@ jobs:
           ditto -c -k --keepParent dist/AIMemoryAdvisor-mac "dist/AIMemoryAdvisor-${{ matrix.name }}.zip"
       - name: Smoke test (macOS, real app launch)
         if: runner.os == 'macOS'
+        timeout-minutes: 5
         run: bash advisor/smoke_mac.sh
       - uses: actions/upload-artifact@v4
         with:
