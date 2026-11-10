@@ -13,8 +13,8 @@ jobs:
       matrix:
         include:
           - { os: windows-latest, name: windows }
-          - { os: macos-14, name: macos-apple-silicon }
-          - { os: macos-13, name: macos-intel }
+          - { os: macos-latest, name: macos-apple-silicon }
+          - { os: macos-15-intel, name: macos-intel }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
