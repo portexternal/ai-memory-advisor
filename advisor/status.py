@@ -82,6 +82,9 @@ def render(folder: Path, cfg: dict, evs: list) -> Path:
         f"<style>{CSS}</style><h1>AI Memory Advisor</h1>",
         f'<p class="muted">Version {core.VERSION}. Report written {datetime.now():%Y-%m-%d %H:%M}. Data folder: {html.escape(str(folder))}</p>',
         f'<p class="big">{headline}</p>',
+        '<p class="muted">For the best result: leave it running every day, sign in as usual, and open your apps '
+        "at your usual times. A steady routine teaches it faster. Stopping it for a few days does not erase "
+        "anything, but days without use do not count as learning days.</p>",
         "<h2>Apps seen (top 15 by launches)</h2>", table(["App", "Launches", "Launch file set"], app_rows(folder, evs)),
     ]
     if active:

@@ -1,4 +1,4 @@
-﻿# Roadmap
+# Roadmap
 
 Core rule for every item: **never sacrifice present performance for predicted future performance.**
 
@@ -39,7 +39,8 @@ Plan in `docs/PLAN-SLOW-STORAGE.md`. The gain should be largest on HDD and SATA 
 - Tray icon and a pause button.
 - Signed build, so SmartScreen stops warning.
 - Per-app opt-out list in the config.
-- Linux and macOS: same idea (`posix_fadvise`, `madvise`), not started.
+- macOS: first build shipped in 0.2.0 (experimental). Next: a real 10-day run on a personal Mac, a signed and notarised app, a menu bar icon.
+- Linux: same idea (`posix_fadvise`), not started.
 
 ## Contributing
 Open an issue first for anything bigger than a bug fix. Bench results need the raw rows and

@@ -1,4 +1,4 @@
-AI Memory Advisor 0.1.0 (thesis prototype)
+AI Memory Advisor 0.2.0 (thesis prototype)
 ==========================================
 
 What it is
@@ -36,6 +36,17 @@ It stays out of the way: it pauses when the CPU or disk is busy, when a heavy ap
 running, and it never uses more than 40 % of installed memory. Windows can take the cached
 memory back at any moment.
 
+Getting the best result
+-----------------------
+The program learns your routine, so give it one to learn:
+- Leave it running every day. Do not stop it between sessions. It starts by itself at sign-in.
+- Open your heavy apps at your usual times, the way you normally work or play. Same app around
+  the same time on the same weekdays is what it learns fastest.
+- Use the computer on as many of the 10 learning days as you can. A day without use is skipped,
+  not counted, so nothing is lost, it just takes longer.
+- Open each heavy app at least 3 times during the learning days, or it will not be prepared.
+- Do not change the clock or time zone, and do not delete the data folder, during the test.
+- No fixed routine? Still fine. Predictions will be weaker at first and improve as days add up.
 Help improve it (optional)
 --------------------------
 Double-click "Share my data.cmd". It writes an anonymised copy of your usage data to a zip file

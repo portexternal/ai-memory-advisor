@@ -4,6 +4,7 @@ import json
 import os
 import platform
 import re
+import sys
 import time
 import uuid
 import zipfile
@@ -14,7 +15,7 @@ from pathlib import Path
 import psutil
 
 APP = "AIMemoryAdvisor"
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 GB = 1e9
 CHUNK = 4 * 1024 * 1024
 STOP_CHECK_BYTES = 512 * 1024 * 1024
@@ -42,10 +43,7 @@ DEFAULTS = {
     "max_disk_mb_s": 50,
     "false_rate_alpha": 0.2,
     "false_rate_penalty": 0.3,
-    "ignore_foreground": [
-        "explorer.exe", "searchhost.exe", "startmenuexperiencehost.exe", "shellexperiencehost.exe",
-        "lockapp.exe", "textinputhost.exe", "applicationframehost.exe", "aimemoryadvisor.exe",
-    ],
+    "ignore_foreground": [],       # extra app names to ignore, on top of the built-in list per OS
 }
 
 
@@ -54,6 +52,8 @@ def data_dir() -> Path:
     override = os.environ.get("AIMA_DATA")
     if override:
         return Path(override)
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / APP
     return Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / APP
 
 
@@ -84,28 +84,40 @@ def phase(days: int, observe_days: int) -> str:
     return "active" if days > observe_days else "learning"
 
 
-def is_user_file(path: str, windir: str) -> bool:
-    """True for a real file outside the Windows folder. System files are shared and already cached."""
-    if not path or len(path) < 3 or path[1] != ":":
+def is_user_file(path: str, system_prefixes) -> bool:
+    """True for a real file outside the operating system folders (those are shared and already
+    cached). system_prefixes is one prefix or a tuple of them, compared case-insensitively."""
+    if not path or not os.path.isabs(path):
         return False
-    return not path.lower().startswith(windir.lower()) and os.path.isfile(path)
+    prefixes = (system_prefixes,) if isinstance(system_prefixes, str) else tuple(system_prefixes)
+    if path.lower().startswith(tuple(p.lower() for p in prefixes)):
+        return False
+    return os.path.isfile(path)
 
 
-def snapshot_files(pid: int) -> set:
+def process_files(proc) -> list:
+    """Open files, plus memory-mapped files where the OS lets a normal user list them (not macOS)."""
+    paths = [f.path for f in proc.open_files()]
+    maps = getattr(proc, "memory_maps", None)
+    if maps:
+        paths += [m.path for m in maps()]
+    return paths
+
+
+def snapshot_files(pid: int, system_prefixes) -> set:
     """Files a process and its children hold open or memory-mapped right now. No admin needed."""
-    windir = os.environ.get("WINDIR", r"C:\Windows")
     found = set()
     try:
         root = psutil.Process(pid)
         procs = [root] + root.children(recursive=True)
-    except psutil.Error:
+    except (psutil.Error, ValueError):
         return found
     for proc in procs:
         try:
-            paths = [f.path for f in proc.open_files()] + [m.path for m in proc.memory_maps()]
-        except (psutil.Error, OSError):
+            paths = process_files(proc)
+        except (psutil.Error, OSError, NotImplementedError):
             continue
-        found.update(p for p in paths if is_user_file(p, windir))
+        found.update(p for p in paths if is_user_file(p, system_prefixes))
     return found
 
 

@@ -9,12 +9,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from advisor import app, core, status  # noqa: E402
+from advisor import app, core, plat, status  # noqa: E402
 from logger import events  # noqa: E402
 from predictor import multi  # noqa: E402
-
-WINDIR = r"C:\Windows"
-
 
 @pytest.fixture
 def folder(tmp_path, monkeypatch):
@@ -61,13 +58,74 @@ def test_load_config_writes_defaults_then_merges_user_values(folder):
     assert cfg["observe_days"] == 3 and cfg["tick_seconds"] == 600
 
 
-def test_is_user_file_rejects_windows_folder_and_missing_files(tmp_path):
+def test_is_user_file_rejects_system_folders_and_missing_files(tmp_path):
+    system = tmp_path / "System"
+    system.mkdir()
+    inside = make_files(system, {"sys.bin": 10})["sys.bin"]
     real = make_files(tmp_path, {"a.bin": 10})["a.bin"]
-    assert core.is_user_file(real, WINDIR)
-    assert not core.is_user_file(os.path.join(WINDIR, "explorer.exe"), WINDIR)
-    assert not core.is_user_file(str(tmp_path / "nope.bin"), WINDIR)
-    assert not core.is_user_file("", WINDIR)
+    assert core.is_user_file(real, (str(system),))
+    assert core.is_user_file(real, str(system))
+    assert not core.is_user_file(inside, (str(system).upper(),))
+    assert not core.is_user_file(str(tmp_path / "nope.bin"), (str(system),))
+    assert not core.is_user_file("", ()) and not core.is_user_file("relative.bin", ())
 
+
+def test_process_files_works_without_memory_maps_like_on_macos():
+    class Opened:
+        path = "/a/file"
+
+    class MacProc:
+        def open_files(self):
+            return [Opened()]
+
+    assert core.process_files(MacProc()) == ["/a/file"]
+
+
+def test_snapshot_of_own_process_returns_only_user_files(tmp_path):
+    held = (tmp_path / "held.bin")
+    held.write_bytes(b"x" * 10)
+    with held.open("rb"):
+        found = core.snapshot_files(os.getpid(), plat.SYSTEM_PREFIXES)
+    assert str(held) in found
+    assert core.snapshot_files(-1, plat.SYSTEM_PREFIXES) == set()
+
+
+def test_platform_backend_has_the_whole_interface():
+    for name in ("windowed_process_names", "foreground_process", "idle_seconds", "ask_yes_no", "ask_three",
+                 "info", "set_autostart", "open_path", "default_data_dir", "bundle_files", "self_exe"):
+        assert callable(getattr(plat, name)), name
+    assert plat.NAME in ("windows", "macos") and plat.IGNORE and plat.SYSTEM_PREFIXES and plat.RERUN_HINT
+    assert plat.bundle_files("/no/bundle/here") == set()
+    assert plat.idle_seconds() >= 0 and isinstance(plat.windowed_process_names(), dict)
+
+
+def test_tracker_logs_a_launch_and_builds_its_file_set(folder, monkeypatch):
+    app_file = make_files(folder, {"tool.bin": 500})["tool.bin"]
+    open_apps = {}
+    monkeypatch.setattr(plat, "windowed_process_names", lambda ignore=(): dict(open_apps))
+    monkeypatch.setattr(plat, "foreground_process", lambda: None)
+    monkeypatch.setattr(plat, "idle_seconds", lambda: 0.0)
+    monkeypatch.setattr(app, "SNAP_DELAYS", (0,))
+    monkeypatch.setattr(core, "snapshot_files", lambda pid, prefixes: {app_file})
+    tracker = app.Tracker(folder, {**core.DEFAULTS, "status_seconds": 9999}, app.Shared())
+    tracker.step()                                  # first pass: nothing open
+    open_apps["tool"] = os.getpid()
+    tracker.step()                                  # launch seen, snapshot scheduled
+    tracker.step()                                  # snapshot taken and merged
+    open_apps.clear()
+    tracker.step()
+    kinds = [e["type"] for e in events.read_all()]
+    assert kinds.count("app_start") == 1 and kinds.count("app_stop") == 1
+    assert core.set_bytes(core.fileset_path(folder, "tool")) == 500
+
+
+def test_report_and_stop_commands_run_quietly_in_test_mode(folder, monkeypatch):
+    monkeypatch.setattr(app, "TEST_MODE", True)
+    app.open_report(folder, core.DEFAULTS)
+    assert (folder / "status.html").exists()
+    (folder / "advisor.lock").write_text("0")
+    app.stop_with_notice(folder, 0)
+    assert not (folder / "advisor.lock").exists()
 
 def test_merge_fileset_counts_launches_and_keeps_every_file_while_young(folder):
     paths = make_files(folder, {"a.bin": 100, "b.bin": 50})
