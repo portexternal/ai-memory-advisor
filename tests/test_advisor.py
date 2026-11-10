@@ -106,6 +106,7 @@ def test_tracker_logs_a_launch_and_builds_its_file_set(folder, monkeypatch):
     monkeypatch.setattr(plat, "foreground_process", lambda: None)
     monkeypatch.setattr(plat, "idle_seconds", lambda: 0.0)
     monkeypatch.setattr(app, "SNAP_DELAYS", (0,))
+    monkeypatch.setattr(plat, "bundle_files", lambda exe: set())   # the test runner itself may live in a bundle
     monkeypatch.setattr(core, "snapshot_files", lambda pid, prefixes: {app_file})
     tracker = app.Tracker(folder, {**core.DEFAULTS, "status_seconds": 9999}, app.Shared())
     tracker.step()                                  # first pass: nothing open

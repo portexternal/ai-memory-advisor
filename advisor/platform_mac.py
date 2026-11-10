@@ -13,7 +13,7 @@ import Quartz
 NAME = "macos"
 TITLE = "AI Memory Advisor"
 AGENT = "com.aimemoryadvisor.agent"
-SYSTEM_PREFIXES = ("/system/", "/usr/", "/private/", "/dev/", "/library/apple/")
+SYSTEM_PREFIXES = ("/system/", "/usr/", "/dev/", "/library/apple/", "/private/var/db/", "/private/etc/")
 IGNORE = ["finder", "dock", "windowserver", "systemuiserver", "controlcenter", "control center",
           "notificationcenter", "notification center", "loginwindow", "spotlight", "aimemoryadvisor"]
 RERUN_HINT = 'double-click "Open report.command" or "Stop.command" in the same folder'
