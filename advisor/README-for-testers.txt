@@ -18,6 +18,12 @@ To see what it learned: double-click the exe again and press Yes. A report opens
 To stop and remove it: double-click the exe again and press No.
 To delete everything it stored: delete the folder %LOCALAPPDATA%\AIMemoryAdvisor.
 
+Terms and privacy
+-----------------
+Read TERMS.txt and PRIVACY.txt in this folder before you start. Pressing Yes on the first-run
+notice means you accept them. Short version: free research prototype, no warranty; everything it
+records stays on your computer; sharing data is optional and only happens if you send a file yourself.
+
 What it records
 ---------------
 Program names (for example blender.exe), start and stop times, idle periods, free memory, and

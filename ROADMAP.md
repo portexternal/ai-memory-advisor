@@ -25,7 +25,8 @@ Design in `docs/FUTURE-MULTI-APP.md`, scaffolding in `predictor/multi.py`.
 ## Shared data pool (opt-in)
 People without a routine are where the count table fails. `AIMemoryAdvisor.exe --share` writes an
 anonymised export (`docs/SHARING.md`); nothing is uploaded.
-- A private upload channel with a clear consent text, so files do not have to go through public issues.
+- A private upload channel, so files do not have to go through public issues. Before it opens: a named contact
+  for data requests in `docs/PRIVACY.md` and a review of the terms by someone qualified in Thai data law (PDPA).
 - A public, anonymised data set once enough people have shared.
 - Models trained on the pool, shipped as a starting point so day 1 is not empty (cold start).
 

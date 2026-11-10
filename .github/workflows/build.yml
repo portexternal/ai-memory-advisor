@@ -33,6 +33,8 @@ jobs:
           Copy-Item dist/AIMemoryAdvisor.exe $out/
           Copy-Item advisor/README-for-testers.txt "$out/README.txt"
           Copy-Item "advisor/Share my data.cmd" $out/
+          Copy-Item docs/TERMS.md "$out/TERMS.txt"
+          Copy-Item docs/PRIVACY.md "$out/PRIVACY.txt"
           Compress-Archive -Path "$out/*" -DestinationPath "dist/AIMemoryAdvisor-${{ matrix.name }}.zip" -Force
       - name: Build (macOS)
         if: runner.os == 'macOS'

@@ -27,6 +27,10 @@ There is no private upload channel yet. It is the next thing on the roadmap.
 Until then you can attach the zip to a GitHub issue in this repository, but issues are **public**:
 only do that if you are fine with the file being readable by anyone.
 
+## Terms
+Sending a share file means you agree to section 4 of `docs/PRIVACY.md`: what the project may do with it,
+how long it is kept, and how to have it deleted (quote the install id inside the file).
+
 ## What it is used for
 Training and testing better launch predictors, and measuring which apps gain from a prefetch.
 Any data set published from it will hold only what the table above lists.

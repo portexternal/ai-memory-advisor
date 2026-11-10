@@ -16,5 +16,7 @@ rm -rf "$OUT" && mkdir -p "$OUT"
 cp -R "$APP" "$OUT/"
 cp advisor/README-for-testers-mac.txt "$OUT/README.txt"
 cp advisor/mac/*.command "$OUT/"
+cp docs/TERMS.md "$OUT/TERMS.txt"
+cp docs/PRIVACY.md "$OUT/PRIVACY.txt"
 chmod +x "$OUT"/*.command
 ls -la "$OUT"

@@ -36,6 +36,10 @@ SNAP_DELAYS = (5, 20, 45)          # seconds after a launch at which the open fi
 MAX_LAUNCH_S = 300
 TEST_MODE = bool(os.environ.get("AIMA_TEST"))
 SHARE_URL = "https://github.com/portexternal/ai-memory-advisor/blob/main/docs/SHARING.md"
+TERMS_URL = "https://github.com/portexternal/ai-memory-advisor/tree/main/docs"
+TERMS_NOTE = ("By pressing Yes you accept the Terms of use and the Privacy notice, version {v} "
+              "(TERMS.txt and PRIVACY.txt next to this program, or {url}). It is a free research "
+              "prototype with no warranty.")
 
 CONSENT = (
     "This program learns which apps you open and when, for {days} days. From day {next} it pre-loads the "
@@ -46,6 +50,7 @@ CONSENT = (
     "For the best result: leave it running every day and use your apps at your usual times. "
     "The steadier your routine, the better it predicts.\n\n"
     "It starts by itself when you sign in. To see the report or to stop it, {rerun}.\n\n"
+    "{terms}\n\n"
     "Start now?")
 
 SHARE_ASK = (
@@ -53,7 +58,10 @@ SHARE_ASK = (
     "In the file: program names, weekday and time of day of each start and stop, launch times, "
     "prediction results, memory size, and the size of each app's launch file set.\n"
     "NOT in the file: dates, file names or paths, user name, window titles.\n\n"
-    "Nothing is sent. The file is only written to your disk and you decide whether to send it.")
+    "Nothing is sent. The file is only written to your disk and you decide whether to send it.\n\n"
+    "If you later send the file to the project, you agree to section 4 of the Privacy notice: it may be "
+    "stored, analysed and published in anonymised form for research, and you can ask for deletion "
+    "with the install id inside the file.")
 
 
 def log_error(folder: Path):
@@ -88,15 +96,25 @@ def stop_instance(folder: Path, pid: int):
     (folder / "advisor.lock").unlink(missing_ok=True)
 
 
+def consent_on_file(marker: Path) -> bool:
+    """True when the current terms version was accepted before. New terms mean asking again."""
+    try:
+        return json.loads(marker.read_text(encoding="utf-8")).get("terms_version") == core.TERMS_VERSION
+    except (OSError, ValueError):
+        return False
+
+
 def consent(folder: Path, cfg: dict) -> bool:
-    """Ask once. The answer is remembered so the login start is silent."""
+    """Ask once per terms version. The answer is remembered so the login start is silent."""
     marker = folder / "consent.json"
-    if marker.exists() or TEST_MODE:
+    if TEST_MODE or consent_on_file(marker):
         return True
-    text = CONSENT.format(days=cfg["observe_days"], next=cfg["observe_days"] + 1, folder=folder, rerun=plat.RERUN_HINT)
+    text = CONSENT.format(days=cfg["observe_days"], next=cfg["observe_days"] + 1, folder=folder, rerun=plat.RERUN_HINT,
+                          terms=TERMS_NOTE.format(v=core.TERMS_VERSION, url=TERMS_URL))
     if not plat.ask_yes_no(text):
         return False
-    marker.write_text(json.dumps({"accepted": datetime.now().isoformat(timespec="seconds"), "version": core.VERSION}))
+    marker.write_text(json.dumps({"accepted": datetime.now().isoformat(timespec="seconds"), "version": core.VERSION,
+                                  "terms_version": core.TERMS_VERSION}), encoding="utf-8")
     set_autostart(True)
     return True
 

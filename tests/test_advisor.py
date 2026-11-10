@@ -298,3 +298,32 @@ def test_mac_autostart_writes_and_removes_the_launch_agent(tmp_path, monkeypatch
     assert data["ProgramArguments"] == ["/tmp/AIMemoryAdvisor"] and data["RunAtLoad"] is True
     plat.set_autostart(False, "AIMemoryAdvisor", "/tmp/AIMemoryAdvisor")
     assert not agent.exists()
+
+def test_consent_is_remembered_per_terms_version(folder, monkeypatch):
+    marker = folder / "consent.json"
+    assert not app.consent_on_file(marker)
+    marker.write_text(json.dumps({"terms_version": core.TERMS_VERSION}), encoding="utf-8")
+    assert app.consent_on_file(marker)
+    monkeypatch.setattr(core, "TERMS_VERSION", "9.9")
+    assert not app.consent_on_file(marker)
+    marker.write_text("broken", encoding="utf-8")
+    assert not app.consent_on_file(marker)
+
+
+def test_consent_asks_shows_the_terms_and_records_the_answer(folder, monkeypatch):
+    asked = []
+    monkeypatch.setattr(app, "TEST_MODE", False)
+    monkeypatch.setattr(app, "set_autostart", lambda on: asked.append(("autostart", on)))
+    monkeypatch.setattr(plat, "ask_yes_no", lambda text: asked.append(text) or False)
+    assert app.consent(folder, core.DEFAULTS) is False and not (folder / "consent.json").exists()
+    assert "Terms of use" in asked[0] and "no warranty" in asked[0] and core.TERMS_VERSION in asked[0]
+    monkeypatch.setattr(plat, "ask_yes_no", lambda text: True)
+    assert app.consent(folder, core.DEFAULTS) is True
+    assert json.loads((folder / "consent.json").read_text())["terms_version"] == core.TERMS_VERSION
+    assert ("autostart", True) in asked
+
+
+def test_share_file_carries_the_sharing_terms_version(folder):
+    import zipfile
+    data = json.loads(zipfile.ZipFile(core.export_share(folder, [])).read("share.json"))
+    assert data["consent"] == {"sharing_terms_version": core.TERMS_VERSION, "agreed_in_app": True}

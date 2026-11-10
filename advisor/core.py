@@ -16,6 +16,7 @@ import psutil
 
 APP = "AIMemoryAdvisor"
 VERSION = "0.2.0"
+TERMS_VERSION = "1.0"           # docs/TERMS.md and docs/PRIVACY.md; a change makes the program ask again
 GB = 1e9
 CHUNK = 4 * 1024 * 1024
 STOP_CHECK_BYTES = 512 * 1024 * 1024
@@ -251,6 +252,7 @@ def export_share(folder: Path, evs: list) -> Path:
     vm = psutil.virtual_memory()
     payload = {
         "format": 1, "version": VERSION, "install_id": share_id(folder),
+        "consent": {"sharing_terms_version": TERMS_VERSION, "agreed_in_app": True},
         "machine": {"ram_gb": round(vm.total / GB), "cpu_threads": psutil.cpu_count(), "os": platform.release()},
         "recorded_days": recorded_days(folder / "logs"),
         "filesets": fileset_summaries(folder),

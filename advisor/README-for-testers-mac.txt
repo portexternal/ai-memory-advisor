@@ -40,6 +40,12 @@ The program learns your routine, so give it one to learn:
 - Open each heavy app at least 3 times during the learning days, or it will not be prepared.
 - Do not change the clock or time zone, and do not delete the data folder, during the test.
 - No fixed routine? Still fine. Predictions will be weaker at first and improve as days add up.
+Terms and privacy
+-----------------
+Read TERMS.txt and PRIVACY.txt in this folder before you start. Pressing Yes on the first-run
+notice means you accept them. Short version: free research prototype, no warranty; everything it
+records stays on your computer; sharing data is optional and only happens if you send a file yourself.
+
 What it records
 ---------------
 Program names (for example Blender), start and stop times, idle periods, free memory, and the

@@ -70,6 +70,10 @@ Every push is tested on Windows and on Apple Silicon and Intel Macs (`.github/wo
 jobs also run the built app against a real app launch. OS-specific code lives in `advisor/platform_win.py` and
 `advisor/platform_mac.py` behind `advisor/plat.py`. Notes for testers: `advisor/README-for-testers*.txt`.
 What comes next: `ROADMAP.md`.
+
+**Terms and privacy.** `docs/TERMS.md` and `docs/PRIVACY.md`. The program shows them on first run and asks
+again when they change. Research prototype, no warranty. Data stays local; sharing is opt-in.
+
 ## Future work: multi-application memory manager (scaffolding, 2026-11-11)
 
 `predictor/multi.py` scores every target in `config.json → predictor.multi.targets` with its own count table, splits a dynamic
